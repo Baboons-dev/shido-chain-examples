@@ -9,8 +9,8 @@ export const shidoChain: Chain = {
     decimals: 18,
   },
   rpcUrls: {
-    public: { http: ["https://rpc-delta-nodes.shidoscan.com"] },
-    default: { http: ["https://rpc-delta-nodes.shidoscan.com"] },
+    public: { http: ["https://rpc-nodes.shidoscan.com"] },
+    default: { http: ["https://rpc-nodes.shidoscan.com"] },
   },
   blockExplorers: {
     default: { name: "ShidoScan", url: "https://shidoscan.com" },
