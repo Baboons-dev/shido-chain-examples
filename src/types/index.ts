@@ -6,7 +6,7 @@ export type TokenData = {
 
 export type Action = "mint" | "increase" | "remove" | null;
 export type ModalProps = {
-  positionId: number | null;
+  position: any;
   onClose: () => void;
 };
 export type PoolData = {
