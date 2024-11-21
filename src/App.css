@@ -132,3 +132,70 @@
 .token-details p {
   margin: 5px 0;
 }
+
+/* IncreaseLiquidity.css */
+
+.increase-liquidity {
+  padding: 20px;
+}
+
+.positions-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.positions-table th,
+.positions-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.positions-table th {
+  background-color: #2c2c2c;
+  color: #ffffff;
+}
+
+.positions-table tr.in-range {
+  background-color: #2e7d32; /* Green for in range */
+  color: #ffffff;
+}
+
+.positions-table tr.out-of-range {
+  background-color: #c62828; /* Red for out of range */
+  color: #ffffff;
+}
+
+.manage-button {
+  background-color: #1976d2; /* Blue button */
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.manage-button:hover {
+  background-color: #1565c0; /* Darker blue on hover */
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.button {
+  background-color: #1976d2; /* Blue button */
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.button:disabled {
+  background-color: #b0bec5; /* Grey when disabled */
+  cursor: not-allowed;
+}

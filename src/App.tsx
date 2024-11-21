@@ -12,7 +12,7 @@ function App() {
       <Header />
       <Router>
         <Routes>
-          <Route path="/pool/" element={<PoolPage />} />
+          <Route path="/" element={<PoolPage />} />
         </Routes>
       </Router>
     </div>
