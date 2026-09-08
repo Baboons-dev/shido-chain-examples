@@ -1,0 +1,107 @@
+name: Dependabot security auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: dependabot-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  security-update:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      contains(github.event.pull_request.labels.*.name, 'security')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      PR_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - name: Verify the repository security-only policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          default_branch=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')
+          if [[ "$BASE_BRANCH" != "$default_branch" ]]; then
+            echo "Refusing to merge: security updates must target the default branch."
+            exit 1
+          fi
+
+          config_file=$(mktemp)
+          gh api "repos/$GITHUB_REPOSITORY/contents/.github/dependabot.yml?ref=$default_branch" \
+            -H 'Accept: application/vnd.github.raw+json' > "$config_file"
+
+          ecosystem_count=$(awk '$1 == "-" && $2 == "package-ecosystem:" { count++ } END { print count + 0 }' "$config_file")
+          disabled_count=$(awk '$1 == "open-pull-requests-limit:" && $2 == "0" { count++ } END { print count + 0 }' "$config_file")
+          if (( ecosystem_count == 0 || ecosystem_count != disabled_count )); then
+            echo "Dependabot version updates are not fully disabled."
+            exit 1
+          fi
+
+      - name: Wait for other checks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Give workflows triggered by the PR time to register their check runs.
+          sleep 45
+          deadline=$((SECONDS + 1800))
+
+          while (( SECONDS < deadline )); do
+            checks=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_SHA/check-runs?per_page=100")
+            statuses=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_SHA/status")
+
+            failed_checks=$(jq '[.check_runs[] | select(.name != "security-update") | select(.status == "completed") | select(.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")] | length' <<< "$checks")
+            pending_checks=$(jq '[.check_runs[] | select(.name != "security-update") | select(.status != "completed")] | length' <<< "$checks")
+            failed_statuses=$(jq '[.statuses[] | select(.state == "failure" or .state == "error")] | length' <<< "$statuses")
+            pending_statuses=$(jq '[.statuses[] | select(.state == "pending")] | length' <<< "$statuses")
+
+            if (( failed_checks > 0 || failed_statuses > 0 )); then
+              echo "A CI check failed; refusing to merge."
+              exit 1
+            fi
+
+            if (( pending_checks == 0 && pending_statuses == 0 )); then
+              echo "All registered CI checks passed."
+              exit 0
+            fi
+
+            echo "Waiting for CI: $pending_checks check run(s), $pending_statuses status context(s)."
+            sleep 30
+          done
+
+          echo "Timed out waiting for CI; refusing to merge."
+          exit 1
+
+      - name: Merge the security update
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          merge_method=$(gh api "repos/$GITHUB_REPOSITORY" --jq '
+            if .allow_squash_merge then "--squash"
+            elif .allow_merge_commit then "--merge"
+            elif .allow_rebase_merge then "--rebase"
+            else ""
+            end
+          ')
+
+          if [[ -z "$merge_method" ]]; then
+            echo "No pull request merge method is enabled."
+            exit 1
+          fi
+
+          gh pr merge "$PR_URL" "$merge_method" --delete-branch --match-head-commit "$PR_SHA"
